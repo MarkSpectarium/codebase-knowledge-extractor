@@ -19,6 +19,7 @@ import {
   type DependencyDirection,
 } from './query/index.js';
 import { startMcpServer } from './mcp/server.js';
+import { startChatServer } from './chat/server.js';
 
 const program = new Command();
 
@@ -383,6 +384,29 @@ program
       await startMcpServer({ dataDir: options.dataDir });
     } catch (err) {
       logger.error(`MCP server failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('chat')
+  .description('Start the interactive chat web interface')
+  .option('--port <number>', 'Port to listen on', '3000')
+  .option('--data-dir <dir>', 'Directory where knowledge bases are stored', 'data')
+  .action(async (options: { port: string; dataDir: string }) => {
+    try {
+      const port = parseInt(options.port, 10);
+      if (isNaN(port) || port < 1 || port > 65535) {
+        console.error('Invalid port number');
+        process.exit(1);
+      }
+
+      await startChatServer({
+        port,
+        dataDir: resolve(options.dataDir),
+      });
+    } catch (err) {
+      logger.error(`Chat server failed: ${err}`);
       process.exit(1);
     }
   });
