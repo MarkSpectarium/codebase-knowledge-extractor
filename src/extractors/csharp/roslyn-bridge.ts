@@ -1,8 +1,12 @@
-import { spawn } from 'node:child_process';
+import { spawn, exec } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { logger } from '../../utils/logger.js';
 import type { RoslynOutput } from '../../knowledge-base/schema.js';
+
+const execAsync = promisify(exec);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROSLYN_TOOL_PATH = join(__dirname, '..', '..', '..', 'tools', 'roslyn-extractor');
@@ -17,10 +21,38 @@ const DEFAULT_OPTIONS: Required<RoslynBridgeOptions> = {
   timeout: 60000,
 };
 
+export async function ensureRoslynToolBuilt(): Promise<void> {
+  const dllPath = join(ROSLYN_TOOL_PATH, 'bin', 'Release', 'net9.0', 'RoslynExtractor.dll');
+
+  if (existsSync(dllPath)) {
+    return;
+  }
+
+  logger.info('Building Roslyn extractor tool (first run)...');
+
+  try {
+    await execAsync('dotnet build -c Release', {
+      cwd: ROSLYN_TOOL_PATH,
+      timeout: 60000,
+    });
+    logger.info('Roslyn extractor built successfully');
+  } catch (err: unknown) {
+    const error = err as { code?: string; message?: string };
+    if (error.code === 'ENOENT') {
+      throw new Error(
+        'dotnet CLI not found. Install .NET SDK 9.0+ from https://dotnet.microsoft.com/download'
+      );
+    }
+    throw new Error(`Failed to build Roslyn extractor: ${error.message}`);
+  }
+}
+
 export async function extractWithRoslyn(
   filePaths: string[],
   options: RoslynBridgeOptions = {}
 ): Promise<RoslynOutput[]> {
+  await ensureRoslynToolBuilt();
+
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const results: RoslynOutput[] = [];
 
