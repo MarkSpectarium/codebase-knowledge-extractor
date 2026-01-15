@@ -11,41 +11,80 @@ var jsonOptions = new JsonSerializerOptions
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
 };
 
-if (args.Length == 0)
-{
-    Console.Error.WriteLine("Usage: RoslynExtractor <file-or-directory> [--batch]");
-    Environment.Exit(1);
-}
+var stdinMode = args.Contains("--stdin");
 
-var path = args[0];
-var batchMode = args.Contains("--batch");
+if (stdinMode)
+{
+    // Batch mode: read file paths from stdin, output NDJSON to stdout
+    string? line;
+    while ((line = Console.ReadLine()) != null)
+    {
+        var filePath = line.Trim();
+        if (string.IsNullOrEmpty(filePath))
+            continue;
 
-var files = new List<string>();
-if (Directory.Exists(path))
-{
-    files.AddRange(Directory.GetFiles(path, "*.cs", SearchOption.AllDirectories));
-}
-else if (File.Exists(path))
-{
-    files.Add(path);
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                var errorResult = new { file = filePath, error = $"File not found: {filePath}" };
+                Console.WriteLine(JsonSerializer.Serialize(errorResult, jsonOptions));
+                Console.Out.Flush();
+                continue;
+            }
+
+            var result = ExtractSymbols(filePath);
+            var json = JsonSerializer.Serialize(result, jsonOptions);
+            Console.WriteLine(json);
+            Console.Out.Flush();
+        }
+        catch (Exception ex)
+        {
+            var errorResult = new { file = filePath, error = ex.Message };
+            Console.WriteLine(JsonSerializer.Serialize(errorResult, jsonOptions));
+            Console.Out.Flush();
+        }
+    }
 }
 else
 {
-    Console.Error.WriteLine($"Path not found: {path}");
-    Environment.Exit(1);
-}
-
-foreach (var file in files)
-{
-    try
+    // Single file/directory mode (existing behavior)
+    if (args.Length == 0)
     {
-        var result = ExtractSymbols(file);
-        var json = JsonSerializer.Serialize(result, jsonOptions);
-        Console.WriteLine(json);
+        Console.Error.WriteLine("Usage: RoslynExtractor <file-or-directory> [--batch] | --stdin");
+        Environment.Exit(1);
     }
-    catch (Exception ex)
+
+    var path = args[0];
+    var batchMode = args.Contains("--batch");
+
+    var files = new List<string>();
+    if (Directory.Exists(path))
     {
-        Console.Error.WriteLine($"Error processing {file}: {ex.Message}");
+        files.AddRange(Directory.GetFiles(path, "*.cs", SearchOption.AllDirectories));
+    }
+    else if (File.Exists(path))
+    {
+        files.Add(path);
+    }
+    else
+    {
+        Console.Error.WriteLine($"Path not found: {path}");
+        Environment.Exit(1);
+    }
+
+    foreach (var file in files)
+    {
+        try
+        {
+            var result = ExtractSymbols(file);
+            var json = JsonSerializer.Serialize(result, jsonOptions);
+            Console.WriteLine(json);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error processing {file}: {ex.Message}");
+        }
     }
 }
 
