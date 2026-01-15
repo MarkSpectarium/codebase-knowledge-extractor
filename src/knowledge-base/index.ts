@@ -83,6 +83,50 @@ export class KnowledgeBase {
     return this.projectPath;
   }
 
+  async readFileSymbols(relativePath: string): Promise<FileSymbols | null> {
+    const safeFileName = this.pathToFileName(relativePath);
+    const filePath = join(this.projectPath, 'symbols', 'by-file', `${safeFileName}.json`);
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      return JSON.parse(content) as FileSymbols;
+    } catch {
+      return null;
+    }
+  }
+
+  async readNamespaceSymbols(namespace: string): Promise<NamespaceSymbols | null> {
+    const safeFileName = this.namespaceToFileName(namespace);
+    const filePath = join(this.projectPath, 'symbols', 'by-namespace', `${safeFileName}.json`);
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      return JSON.parse(content) as NamespaceSymbols;
+    } catch {
+      return null;
+    }
+  }
+
+  async listNamespaces(): Promise<string[]> {
+    try {
+      const nsDir = join(this.projectPath, 'symbols', 'by-namespace');
+      const files = await readdir(nsDir);
+      return files.map(f => f.replace('.json', '').replace(/_/g, '.'));
+    } catch {
+      return [];
+    }
+  }
+
+  async getAllFileSymbols(): Promise<FileSymbols[]> {
+    const manifest = await this.readFileManifest();
+    if (!manifest) return [];
+
+    const results: FileSymbols[] = [];
+    for (const file of manifest.files) {
+      const symbols = await this.readFileSymbols(file.relativePath);
+      if (symbols) results.push(symbols);
+    }
+    return results;
+  }
+
   static async listProjects(dataDir: string): Promise<string[]> {
     try {
       const entries = await readdir(dataDir, { withFileTypes: true });
