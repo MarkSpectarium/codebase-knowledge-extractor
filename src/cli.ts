@@ -18,8 +18,9 @@ program
   .argument('<path>', 'Path to the project to index')
   .requiredOption('--name <name>', 'Name for the knowledge base')
   .option('--data-dir <dir>', 'Directory to store the knowledge base', 'data')
+  .option('--exclude <pattern>', 'Glob pattern to exclude (can be specified multiple times)', (val: string, acc: string[]) => { acc.push(val); return acc; }, [] as string[])
   .option('-v, --verbose', 'Enable verbose logging')
-  .action(async (projectPath: string, options: { name: string; dataDir: string; verbose?: boolean }) => {
+  .action(async (projectPath: string, options: { name: string; dataDir: string; exclude: string[]; verbose?: boolean }) => {
     if (options.verbose) {
       logger.setLevel('debug');
     }
@@ -31,6 +32,7 @@ program
       const result = await indexProject(absolutePath, {
         projectName: options.name,
         dataDir,
+        excludePatterns: options.exclude,
       });
 
       console.log(`\nIndexing complete!`);

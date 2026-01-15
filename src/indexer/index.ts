@@ -13,6 +13,7 @@ import { logger } from '../utils/logger.js';
 export interface IndexOptions {
   projectName: string;
   dataDir?: string;
+  excludePatterns?: string[];
 }
 
 export interface IndexResult {
@@ -38,6 +39,7 @@ export async function indexProject(
   const files = await scanDirectory(rootPath, {
     extensions: ['.cs'],
     respectGitignore: true,
+    excludePatterns: options.excludePatterns,
   });
 
   if (files.length === 0) {
