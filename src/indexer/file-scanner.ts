@@ -21,11 +21,13 @@ export interface ScannedFile {
 export interface ScanOptions {
   extensions?: string[];
   respectGitignore?: boolean;
+  excludePatterns?: string[];
 }
 
-const DEFAULT_OPTIONS: Required<ScanOptions> = {
+const DEFAULT_OPTIONS: ScanOptions = {
   extensions: ['.cs'],
   respectGitignore: true,
+  excludePatterns: [],
 };
 
 export async function scanDirectory(
@@ -40,7 +42,14 @@ export async function scanDirectory(
     ig = await loadGitignore(rootPath);
   }
 
-  await scanRecursive(rootPath, rootPath, files, opts.extensions, ig);
+  if (opts.excludePatterns && opts.excludePatterns.length > 0) {
+    if (!ig) {
+      ig = ignore();
+    }
+    ig.add(opts.excludePatterns);
+  }
+
+  await scanRecursive(rootPath, rootPath, files, opts.extensions!, ig);
 
   logger.info(`Scanned ${files.length} files in ${rootPath}`);
   return files;
