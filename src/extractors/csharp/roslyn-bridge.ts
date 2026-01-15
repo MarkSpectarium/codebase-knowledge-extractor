@@ -142,8 +142,10 @@ function runBatchExtractor(filePaths: string[], timeout: number): Promise<(Rosly
       }
 
       // Build results array in the same order as input
+      // Normalize paths to forward slashes for consistent lookup (Roslyn returns forward slashes)
       for (const filePath of filePaths) {
-        const result = resultMap.get(filePath);
+        const normalizedPath = filePath.replace(/\\/g, '/');
+        const result = resultMap.get(normalizedPath);
         results.push(result ?? null);
       }
 
