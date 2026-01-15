@@ -71,3 +71,14 @@ export interface RoslynOutput {
   usings: string[];
   dependencies: DependencyInfo;
 }
+
+export interface RoslynError {
+  file: string;
+  error: string;
+}
+
+export type RoslynResult = RoslynOutput | RoslynError;
+
+export function isRoslynError(result: RoslynResult): result is RoslynError {
+  return 'error' in result;
+}
