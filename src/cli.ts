@@ -18,6 +18,7 @@ import {
   type SearchableKind,
   type DependencyDirection,
 } from './query/index.js';
+import { startMcpServer } from './mcp/server.js';
 
 const program = new Command();
 
@@ -369,6 +370,19 @@ program
       }
     } catch (err) {
       logger.error(`Context generation failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('serve')
+  .description('Start the MCP server for AI-assisted development')
+  .option('--data-dir <dir>', 'Directory where knowledge bases are stored', 'data')
+  .action(async (options: { dataDir: string }) => {
+    try {
+      await startMcpServer({ dataDir: options.dataDir });
+    } catch (err) {
+      logger.error(`MCP server failed: ${err}`);
       process.exit(1);
     }
   });
