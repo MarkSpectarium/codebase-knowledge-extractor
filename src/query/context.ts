@@ -68,6 +68,34 @@ function tokenize(task: string): string[] {
     .filter((t) => t.length > 2 && !stopWords.has(t));
 }
 
+const SDK_PATH_PATTERNS = [
+  'SDK', 'Packages/', 'ThirdParty/', 'Plugins/', 'External/',
+  'Vendor/', 'Dependencies/', 'node_modules/'
+];
+
+function getPathScore(relativePath: string, tokens: string[]): { score: number; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+  const pathLower = relativePath.toLowerCase();
+
+  for (const pattern of SDK_PATH_PATTERNS) {
+    if (pathLower.includes(pattern.toLowerCase())) {
+      score -= 10;
+      reasons.push(`SDK/vendor path penalty`);
+      break;
+    }
+  }
+
+  for (const token of tokens) {
+    if (pathLower.includes(token)) {
+      score += 3;
+      reasons.push(`Path contains "${token}"`);
+    }
+  }
+
+  return { score, reasons };
+}
+
 function scoreFiles(allFileSymbols: FileSymbols[], tokens: string[]): ScoredFile[] {
   const scored: ScoredFile[] = [];
 
@@ -75,6 +103,10 @@ function scoreFiles(allFileSymbols: FileSymbols[], tokens: string[]): ScoredFile
     let score = 0;
     const matchedSymbols: string[] = [];
     const relevance: string[] = [];
+
+    const pathScore = getPathScore(fileSymbols.relativePath, tokens);
+    score += pathScore.score;
+    relevance.push(...pathScore.reasons);
 
     for (const symbol of fileSymbols.symbols) {
       const symbolScore = scoreSymbol(symbol, tokens);
