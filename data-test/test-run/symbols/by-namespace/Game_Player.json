@@ -1,0 +1,14 @@
+{
+  "namespace": "Game.Player",
+  "files": [
+    "PlayerController.cs"
+  ],
+  "symbols": [
+    {
+      "name": "PlayerController",
+      "kind": "class",
+      "file": "PlayerController.cs",
+      "line": 9
+    }
+  ]
+}

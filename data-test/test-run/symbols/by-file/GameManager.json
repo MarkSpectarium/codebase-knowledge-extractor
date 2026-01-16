@@ -1,0 +1,297 @@
+{
+  "file": "C:/Users/Aracos/Desktop/codebase-knowledge-extractor/tests/fixtures/GameManager.cs",
+  "relativePath": "GameManager.cs",
+  "symbols": [
+    {
+      "name": "GameState",
+      "kind": "enum",
+      "namespace": "Game.Core",
+      "line": 7,
+      "endLine": 13,
+      "modifiers": [
+        "public"
+      ],
+      "attributes": [],
+      "members": [
+        {
+          "name": "MainMenu",
+          "kind": "enumMember",
+          "line": 9,
+          "modifiers": [],
+          "attributes": []
+        },
+        {
+          "name": "Playing",
+          "kind": "enumMember",
+          "line": 10,
+          "modifiers": [],
+          "attributes": []
+        },
+        {
+          "name": "Paused",
+          "kind": "enumMember",
+          "line": 11,
+          "modifiers": [],
+          "attributes": []
+        },
+        {
+          "name": "GameOver",
+          "kind": "enumMember",
+          "line": 12,
+          "modifiers": [],
+          "attributes": []
+        }
+      ]
+    },
+    {
+      "name": "IGameService",
+      "kind": "interface",
+      "namespace": "Game.Core",
+      "line": 15,
+      "endLine": 19,
+      "modifiers": [
+        "public"
+      ],
+      "attributes": []
+    },
+    {
+      "name": "GameSettings",
+      "kind": "struct",
+      "namespace": "Game.Core",
+      "line": 21,
+      "endLine": 27,
+      "modifiers": [
+        "public"
+      ],
+      "attributes": [
+        "Serializable"
+      ],
+      "members": [
+        {
+          "name": "difficulty",
+          "kind": "field",
+          "line": 24,
+          "signature": "public float difficulty",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "maxPlayers",
+          "kind": "field",
+          "line": 25,
+          "signature": "public int maxPlayers",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "enableTutorial",
+          "kind": "field",
+          "line": 26,
+          "signature": "public bool enableTutorial",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        }
+      ]
+    },
+    {
+      "name": "GameManager",
+      "kind": "class",
+      "namespace": "Game.Core",
+      "line": 29,
+      "endLine": 122,
+      "modifiers": [
+        "public"
+      ],
+      "bases": [
+        "MonoBehaviour"
+      ],
+      "attributes": [],
+      "members": [
+        {
+          "name": "Instance",
+          "kind": "property",
+          "line": 31,
+          "signature": "public static GameManager Instance { get; set; }",
+          "modifiers": [
+            "public",
+            "static"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "defaultSettings",
+          "kind": "field",
+          "line": 33,
+          "signature": "private GameSettings defaultSettings",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "CurrentState",
+          "kind": "property",
+          "line": 35,
+          "signature": "public GameState CurrentState { get; set; }",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "Awake",
+          "kind": "method",
+          "line": 40,
+          "signature": "private void Awake()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "Start",
+          "kind": "method",
+          "line": 52,
+          "signature": "private void Start()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "OnDestroy",
+          "kind": "method",
+          "line": 57,
+          "signature": "private void OnDestroy()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "RegisterService",
+          "kind": "method",
+          "line": 62,
+          "signature": "public void RegisterService(IGameService service)",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "ChangeState",
+          "kind": "method",
+          "line": 68,
+          "signature": "public void ChangeState(GameState newState)",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "StartGame",
+          "kind": "method",
+          "line": 78,
+          "signature": "public void StartGame()",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "PauseGame",
+          "kind": "method",
+          "line": 83,
+          "signature": "public void PauseGame()",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "ResumeGame",
+          "kind": "method",
+          "line": 92,
+          "signature": "public void ResumeGame()",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "EndGame",
+          "kind": "method",
+          "line": 101,
+          "signature": "public void EndGame()",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        }
+      ]
+    }
+  ],
+  "usings": [
+    "UnityEngine",
+    "System",
+    "System.Collections.Generic"
+  ],
+  "dependencies": {
+    "types": [
+      "UnityEngine",
+      "System",
+      "Collections",
+      "Generic",
+      "Game",
+      "Core",
+      "Serializable",
+      "MonoBehaviour",
+      "GameManager",
+      "SerializeField",
+      "GameSettings",
+      "GameState",
+      "MainMenu",
+      "Action",
+      "List",
+      "IGameService",
+      "Instance",
+      "Destroy",
+      "gameObject",
+      "DontDestroyOnLoad",
+      "InitializeServices",
+      "ShutdownServices",
+      "_services",
+      "Add",
+      "service",
+      "Initialize",
+      "CurrentState",
+      "newState",
+      "OnStateChanged",
+      "Invoke",
+      "Debug",
+      "Log",
+      "ChangeState",
+      "Playing",
+      "Paused",
+      "Time",
+      "timeScale",
+      "GameOver",
+      "var",
+      "Shutdown"
+    ],
+    "calls": [
+      "Debug.Log"
+    ]
+  }
+}

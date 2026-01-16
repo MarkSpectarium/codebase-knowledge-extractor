@@ -1,0 +1,327 @@
+{
+  "file": "C:/Users/Aracos/Desktop/codebase-knowledge-extractor/tests/fixtures/PlayerController.cs",
+  "relativePath": "PlayerController.cs",
+  "symbols": [
+    {
+      "name": "PlayerController",
+      "kind": "class",
+      "namespace": "Game.Player",
+      "line": 9,
+      "endLine": 132,
+      "modifiers": [
+        "public"
+      ],
+      "bases": [
+        "MonoBehaviour"
+      ],
+      "attributes": [
+        "RequireComponent(typeof(Rigidbody))",
+        "RequireComponent(typeof(CapsuleCollider))"
+      ],
+      "members": [
+        {
+          "name": "moveSpeed",
+          "kind": "field",
+          "line": 13,
+          "signature": "private float moveSpeed",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "Header(\"Movement Settings\")",
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "jumpForce",
+          "kind": "field",
+          "line": 15,
+          "signature": "private float jumpForce",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "rotationSpeed",
+          "kind": "field",
+          "line": 16,
+          "signature": "private float rotationSpeed",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "groundCheck",
+          "kind": "field",
+          "line": 18,
+          "signature": "private Transform groundCheck",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "Header(\"Ground Check\")",
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "groundDistance",
+          "kind": "field",
+          "line": 20,
+          "signature": "private float groundDistance",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "groundMask",
+          "kind": "field",
+          "line": 21,
+          "signature": "private LayerMask groundMask",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [
+            "SerializeField"
+          ]
+        },
+        {
+          "name": "Health",
+          "kind": "property",
+          "line": 23,
+          "signature": "public float Health { get; set; }",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "IsGrounded",
+          "kind": "property",
+          "line": 24,
+          "signature": "public bool IsGrounded { get; set; }",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "Velocity",
+          "kind": "property",
+          "line": 25,
+          "signature": "public Vector3 Velocity",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "Awake",
+          "kind": "method",
+          "line": 32,
+          "signature": "private void Awake()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "Start",
+          "kind": "method",
+          "line": 38,
+          "signature": "private void Start()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "Update",
+          "kind": "method",
+          "line": 43,
+          "signature": "private void Update()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "FixedUpdate",
+          "kind": "method",
+          "line": 49,
+          "signature": "private void FixedUpdate()",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "Move",
+          "kind": "method",
+          "line": 60,
+          "signature": "public void Move(Vector3 direction)",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "Jump",
+          "kind": "method",
+          "line": 76,
+          "signature": "public void Jump()",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "TakeDamage",
+          "kind": "method",
+          "line": 84,
+          "signature": "public void TakeDamage(float amount)",
+          "modifiers": [
+            "public"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "Die",
+          "kind": "method",
+          "line": 93,
+          "signature": "protected virtual void Die()",
+          "modifiers": [
+            "protected",
+            "virtual"
+          ],
+          "attributes": []
+        },
+        {
+          "name": "OnCollisionEnter",
+          "kind": "method",
+          "line": 116,
+          "signature": "private void OnCollisionEnter(Collision collision)",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        },
+        {
+          "name": "OnTriggerEnter",
+          "kind": "method",
+          "line": 124,
+          "signature": "private void OnTriggerEnter(Collider other)",
+          "modifiers": [
+            "private"
+          ],
+          "attributes": [],
+          "isUnityMessage": true
+        }
+      ]
+    }
+  ],
+  "usings": [
+    "UnityEngine",
+    "System.Collections.Generic"
+  ],
+  "dependencies": {
+    "types": [
+      "UnityEngine",
+      "System",
+      "Collections",
+      "Generic",
+      "Game",
+      "Player",
+      "MonoBehaviour",
+      "RequireComponent",
+      "Rigidbody",
+      "CapsuleCollider",
+      "Header",
+      "SerializeField",
+      "Transform",
+      "LayerMask",
+      "Vector3",
+      "_rigidbody",
+      "velocity",
+      "GetComponent",
+      "_collider",
+      "Debug",
+      "Log",
+      "HandleInput",
+      "CheckGround",
+      "Move",
+      "_moveDirection",
+      "_shouldJump",
+      "IsGrounded",
+      "Jump",
+      "direction",
+      "magnitude",
+      "normalized",
+      "moveSpeed",
+      "targetVelocity",
+      "x",
+      "y",
+      "z",
+      "Quaternion",
+      "LookRotation",
+      "transform",
+      "rotation",
+      "RotateTowards",
+      "targetRotation",
+      "rotationSpeed",
+      "Time",
+      "fixedDeltaTime",
+      "AddForce",
+      "up",
+      "jumpForce",
+      "ForceMode",
+      "Impulse",
+      "Health",
+      "amount",
+      "Die",
+      "gameObject",
+      "SetActive",
+      "Input",
+      "GetAxisRaw",
+      "horizontal",
+      "vertical",
+      "GetButtonDown",
+      "Physics",
+      "CheckSphere",
+      "groundCheck",
+      "position",
+      "groundDistance",
+      "groundMask",
+      "Collision",
+      "collision",
+      "CompareTag",
+      "TakeDamage",
+      "Collider",
+      "other",
+      "Mathf",
+      "Min",
+      "Destroy"
+    ],
+    "calls": [
+      "GetComponent<Rigidbody>",
+      "GetComponent<CapsuleCollider>",
+      "Debug.Log",
+      "Input.GetAxisRaw",
+      "Input.GetButtonDown",
+      "Physics.CheckSphere"
+    ]
+  }
+}

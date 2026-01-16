@@ -1,6 +1,22 @@
-# Codebase Knowledge Extractor
+# Data Management and Extraction Tools
 
+A collection of tools for managing, extracting, and preparing data for AI agents.
+
+## Projects
+
+### code_knowledge
 A CLI tool that creates a queryable knowledge base from codebases, enabling AI agents to quickly identify which files are relevant to any task.
+
+### json_genius
+(Future project - not yet implemented)
+
+## Shared Directory
+
+- `data/` - Shared export directory for all projects
+
+---
+
+# code_knowledge - Codebase Knowledge Extractor
 
 ## Purpose
 
@@ -23,28 +39,31 @@ The generated knowledge base is stored as JSON files, making it portable and eas
 
 ```
 codebase-knowledge-extractor/
-├── src/
-│   ├── cli.ts                         # Main CLI entry point
-│   ├── indexer/
-│   │   ├── index.ts                   # Orchestrates full indexing
-│   │   └── file-scanner.ts            # Discovers source files (respects .gitignore)
-│   ├── extractors/
-│   │   ├── base.ts                    # Base extractor interface
-│   │   └── csharp/
-│   │       ├── index.ts               # C# extractor implementation
-│   │       └── roslyn-bridge.ts       # Interface to .NET Roslyn tool
-│   ├── knowledge-base/
-│   │   ├── index.ts                   # KB read/write operations
-│   │   └── schema.ts                  # TypeScript types for KB structure
-│   └── utils/
-│       └── logger.ts                  # Logging utility
-├── tools/
-│   └── roslyn-extractor/              # .NET tool for C# parsing
-│       ├── RoslynExtractor.csproj
-│       └── Program.cs
-├── data/                              # Generated KBs (gitignored)
-├── package.json
-└── tsconfig.json
+├── code_knowledge/                    # Codebase Knowledge Extractor
+│   ├── src/
+│   │   ├── cli.ts                     # Main CLI entry point
+│   │   ├── indexer/
+│   │   │   ├── index.ts               # Orchestrates full indexing
+│   │   │   └── file-scanner.ts        # Discovers source files (respects .gitignore)
+│   │   ├── extractors/
+│   │   │   ├── base.ts                # Base extractor interface
+│   │   │   └── csharp/
+│   │   │       ├── index.ts           # C# extractor implementation
+│   │   │       └── roslyn-bridge.ts   # Interface to .NET Roslyn tool
+│   │   ├── knowledge-base/
+│   │   │   ├── index.ts               # KB read/write operations
+│   │   │   └── schema.ts              # TypeScript types for KB structure
+│   │   └── utils/
+│   │       └── logger.ts              # Logging utility
+│   ├── tools/
+│   │   └── roslyn-extractor/          # .NET tool for C# parsing
+│   │       ├── RoslynExtractor.csproj
+│   │       └── Program.cs
+│   ├── package.json
+│   └── tsconfig.json
+├── json_genius/                       # Future project (empty)
+├── data/                              # Shared output directory (gitignored)
+└── CLAUDE.md
 ```
 
 ## Knowledge Base Output Structure
@@ -62,7 +81,11 @@ data/<project-name>/
 
 ## CLI Commands
 
+All commands should be run from the `code_knowledge/` directory:
+
 ```bash
+cd code_knowledge
+
 # Index a project
 npx codebase-knowledge-extractor index <path> --name <name> [--data-dir <dir>] [--exclude <pattern>] [-v]
 
@@ -76,13 +99,17 @@ npx codebase-knowledge-extractor projects [--data-dir <dir>]
 ### Options
 
 - `--name <name>` - Name for the knowledge base (required for index)
-- `--data-dir <dir>` - Directory to store knowledge bases (default: `data`)
+- `--data-dir <dir>` - Directory to store knowledge bases (default: `data`, use `../data` for shared directory)
 - `--exclude <pattern>` - Glob pattern to exclude (can be specified multiple times)
 - `-v, --verbose` - Enable verbose/debug logging
 
 ## Development
 
+All development commands should be run from `code_knowledge/`:
+
 ```bash
+cd code_knowledge
+
 # Install dependencies
 pnpm install
 
@@ -101,7 +128,7 @@ pnpm typecheck
 
 ## Architecture Details
 
-### Roslyn Bridge (`src/extractors/csharp/roslyn-bridge.ts`)
+### Roslyn Bridge (`code_knowledge/src/extractors/csharp/roslyn-bridge.ts`)
 
 The Node.js side spawns the .NET Roslyn tool and communicates via stdin/stdout:
 - Sends file paths via stdin (one per line)
@@ -109,7 +136,7 @@ The Node.js side spawns the .NET Roslyn tool and communicates via stdin/stdout:
 - Handles batch processing with dynamic timeouts
 - Auto-builds the .NET tool on first run
 
-### Roslyn Extractor (`tools/roslyn-extractor/Program.cs`)
+### Roslyn Extractor (`code_knowledge/tools/roslyn-extractor/Program.cs`)
 
 A .NET console tool that:
 1. Accepts `--stdin` flag for batch mode (reads paths from stdin, outputs NDJSON)
@@ -118,7 +145,7 @@ A .NET console tool that:
 4. Identifies Unity message methods (Awake, Start, Update, etc.)
 5. Tracks `GetComponent<T>()` calls and type references
 
-### File Scanner (`src/indexer/file-scanner.ts`)
+### File Scanner (`code_knowledge/src/indexer/file-scanner.ts`)
 
 - Recursively scans directories for `.cs` files
 - Respects `.gitignore` patterns
@@ -127,7 +154,7 @@ A .NET console tool that:
 
 ### Knowledge Base Schema
 
-Key types from `src/knowledge-base/schema.ts`:
+Key types from `code_knowledge/src/knowledge-base/schema.ts`:
 
 ```typescript
 interface FileSymbols {
@@ -174,16 +201,23 @@ interface MemberInfo {
 
 This project includes an MCP server that exposes codebase querying tools to Claude Code.
 
-To enable it:
-1. Copy `.claude/settings.local.json.example` to `.claude/settings.local.json`
-2. Restart Claude Code
+To enable it, run from the repository root:
+```bash
+# Windows
+claude mcp add codebase-kb -s project -- cmd /c "cd code_knowledge && npx codebase-knowledge-extractor serve --data-dir ../data"
+
+# macOS/Linux
+claude mcp add codebase-kb -s project -- sh -c "cd code_knowledge && npx codebase-knowledge-extractor serve --data-dir ../data"
+```
+
+Then restart Claude Code.
 
 Available tools:
 - `search_symbols` - Search symbols by name
 - `get_symbol` - Get detailed symbol information
 - `find_relevant_files` - Find files relevant to a task description
 - `get_dependencies` - Get symbol dependencies
-- And more (see `src/mcp/tools.ts` for full list)
+- And more (see `code_knowledge/src/mcp/tools.ts` for full list)
 
 ## Future Phases (Not Yet Implemented)
 

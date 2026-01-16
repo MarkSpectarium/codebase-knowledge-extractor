@@ -1,0 +1,32 @@
+{
+  "namespace": "Game.Core",
+  "files": [
+    "GameManager.cs"
+  ],
+  "symbols": [
+    {
+      "name": "GameState",
+      "kind": "enum",
+      "file": "GameManager.cs",
+      "line": 7
+    },
+    {
+      "name": "IGameService",
+      "kind": "interface",
+      "file": "GameManager.cs",
+      "line": 15
+    },
+    {
+      "name": "GameSettings",
+      "kind": "struct",
+      "file": "GameManager.cs",
+      "line": 21
+    },
+    {
+      "name": "GameManager",
+      "kind": "class",
+      "file": "GameManager.cs",
+      "line": 29
+    }
+  ]
+}

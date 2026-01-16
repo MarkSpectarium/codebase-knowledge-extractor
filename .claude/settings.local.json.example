@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "codebase-kb": {
-      "command": "npx",
-      "args": ["codebase-knowledge-extractor", "serve", "--data-dir", "./data"],
-      "cwd": "${workspaceFolder}"
-    }
-  }
-}

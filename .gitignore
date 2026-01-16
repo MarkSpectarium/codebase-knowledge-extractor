@@ -1,15 +1,17 @@
 # Dependencies
 node_modules/
+code_knowledge/node_modules/
 
 # Build output
 dist/
+code_knowledge/dist/
 
 # Generated knowledge base data
 data/
 
 # .NET build output
-tools/roslyn-extractor/bin/
-tools/roslyn-extractor/obj/
+code_knowledge/tools/roslyn-extractor/bin/
+code_knowledge/tools/roslyn-extractor/obj/
 
 # IDE
 .vscode/

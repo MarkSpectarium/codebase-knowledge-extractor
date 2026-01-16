@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "codebase-kb": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "cd",
+        "code_knowledge",
+        "&&",
+        "npx",
+        "codebase-knowledge-extractor",
+        "serve",
+        "--data-dir",
+        "../data"
+      ],
+      "env": {}
+    }
+  }
+}

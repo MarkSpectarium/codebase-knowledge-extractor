@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "C:/Users/Aracos/Desktop/codebase-knowledge-extractor/tests/fixtures/GameManager.cs",
+      "relativePath": "GameManager.cs",
+      "size": 2833,
+      "lastModified": "2026-01-15T20:37:30.819Z",
+      "hash": "20d8f795d199c6d0",
+      "symbolCount": 4
+    },
+    {
+      "path": "C:/Users/Aracos/Desktop/codebase-knowledge-extractor/tests/fixtures/PlayerController.cs",
+      "relativePath": "PlayerController.cs",
+      "size": 3844,
+      "lastModified": "2026-01-15T20:37:30.819Z",
+      "hash": "e920a88085146fce",
+      "symbolCount": 1
+    }
+  ]
+}
