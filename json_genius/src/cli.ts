@@ -20,6 +20,19 @@ import {
   formatStatsResult,
   formatDistributionResult,
 } from './query/aggregate.js';
+import {
+  findRelationships,
+  formatRelationshipResult,
+} from './analyzer/relationship-finder.js';
+import {
+  resolveType,
+  formatTypeResult,
+  closeClient,
+} from './type-resolver/mcp-bridge.js';
+import {
+  executeJoin,
+  formatJoinResults,
+} from './query/join.js';
 
 const program = new Command();
 
@@ -324,6 +337,126 @@ program
       console.log(formatDistributionResult(result));
     } catch (err) {
       logger.error(`Distribution failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('relationships')
+  .description('Detect relationships between two JSON files by analyzing ID patterns')
+  .argument('<file1>', 'Path to the first JSON file')
+  .argument('<file2>', 'Path to the second JSON file')
+  .option('--min-coverage <n>', 'Minimum coverage % to report', '50')
+  .option('-v, --verbose', 'Show all detected ID fields even if no matches found')
+  .action(async (file1: string, file2: string, options: {
+    minCoverage: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: leftPath } = await validateFile(file1);
+      const { path: rightPath } = await validateFile(file2);
+
+      const startTime = Date.now();
+
+      const result = await findRelationships(leftPath, rightPath, {
+        minCoverage: parseInt(options.minCoverage, 10),
+        verbose: options.verbose,
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Relationship detection completed in ${elapsed}s`);
+
+      console.log(formatRelationshipResult(result, options.verbose));
+    } catch (err) {
+      logger.error(`Relationship detection failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('type')
+  .description('Look up a $type annotation in the codebase knowledge base')
+  .argument('<type>', 'The type name to look up (e.g., "Myths.SharedCode.PlayerModel")')
+  .requiredOption('--project <name>', 'Knowledge base project name')
+  .option('--show-deps', 'Also show type dependencies')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (typeName: string, options: {
+    project: string;
+    showDeps?: boolean;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const startTime = Date.now();
+
+      const result = await resolveType(typeName, {
+        project: options.project,
+        showDeps: options.showDeps,
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Type resolution completed in ${elapsed}s`);
+
+      console.log(formatTypeResult(result));
+
+      await closeClient();
+    } catch (err) {
+      logger.error(`Type resolution failed: ${err}`);
+      await closeClient();
+      process.exit(1);
+    }
+  });
+
+program
+  .command('join')
+  .description('Query across two related JSON files using detected or specified relationships')
+  .argument('<file1>', 'Path to the left JSON file')
+  .argument('<file2>', 'Path to the right JSON file')
+  .option('--left-key <path>', 'Path to join key in left file')
+  .option('--right-key <path>', 'Path to join key in right file')
+  .option('--select <fields>', 'Fields to select (prefix with a. or b.)')
+  .option('--filter <expr>', 'Filter expression (prefix paths with a. or b.)')
+  .option('--limit <n>', 'Maximum number of results', '100')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file1: string, file2: string, options: {
+    leftKey?: string;
+    rightKey?: string;
+    select?: string;
+    filter?: string;
+    limit: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: leftPath } = await validateFile(file1);
+      const { path: rightPath } = await validateFile(file2);
+
+      const startTime = Date.now();
+
+      const result = await executeJoin(leftPath, rightPath, {
+        leftKey: options.leftKey,
+        rightKey: options.rightKey,
+        select: options.select?.split(',').map(s => s.trim()),
+        filter: options.filter,
+        limit: parseInt(options.limit, 10),
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Join completed in ${elapsed}s`);
+
+      console.log(formatJoinResults(result));
+    } catch (err) {
+      logger.error(`Join failed: ${err}`);
       process.exit(1);
     }
   });
