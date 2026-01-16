@@ -178,8 +178,8 @@ export async function extractSchema(
           stack.push({ type: 'object', schema, depth: 0, arrayIndex: 0 });
         } else if (getCurrentDepth() < maxDepth && shouldSample()) {
           const frame = stack[stack.length - 1];
-          if (frame.type === 'object' && currentKey) {
-            frame.schema.properties![currentKey] = schema;
+          if (frame.type === 'object' && currentKey && frame.schema.properties) {
+            frame.schema.properties[currentKey] = schema;
             stack.push({ type: 'object', key: currentKey, schema, depth: getCurrentDepth(), arrayIndex: 0 });
             currentKey = undefined;
           } else if (frame.type === 'array') {
@@ -192,7 +192,8 @@ export async function extractSchema(
             frame.arrayIndex++;
           }
         } else {
-          stack.push({ type: 'object', schema: { type: 'object' }, depth: getCurrentDepth(), arrayIndex: 0 });
+          // Placeholder schema for depth-exceeded objects - still need properties for potential $type capture
+          stack.push({ type: 'object', schema: { type: 'object', properties: {} }, depth: getCurrentDepth(), arrayIndex: 0 });
         }
         break;
       }
@@ -210,8 +211,8 @@ export async function extractSchema(
           stack.push({ type: 'array', schema, depth: 0, arrayIndex: 0 });
         } else if (getCurrentDepth() < maxDepth) {
           const frame = stack[stack.length - 1];
-          if (frame.type === 'object' && currentKey) {
-            frame.schema.properties![currentKey] = schema;
+          if (frame.type === 'object' && currentKey && frame.schema.properties) {
+            frame.schema.properties[currentKey] = schema;
             stack.push({ type: 'array', key: currentKey, schema, depth: getCurrentDepth(), arrayIndex: 0 });
             currentKey = undefined;
           } else if (frame.type === 'array') {
@@ -266,26 +267,25 @@ export async function extractSchema(
         const frame = stack[stack.length - 1];
 
         if (frame.type === 'object' && currentKey) {
-          if (getCurrentDepth() <= maxDepth) {
-            if (currentKey === '$type' && typeof value === 'string') {
-              frame.schema.$type = value;
-            } else {
-              const valueSchema = createValueSchema(name, value);
+          // Capture $type regardless of depth
+          if (currentKey === '$type' && typeof value === 'string') {
+            frame.schema.$type = value;
+          } else if (getCurrentDepth() < maxDepth && frame.schema.properties) {
+            const valueSchema = createValueSchema(name, value);
 
-              if (!frame.schema.properties![currentKey]) {
-                frame.schema.properties![currentKey] = valueSchema;
-              } else {
-                frame.schema.properties![currentKey] = mergeSchemas(
-                  frame.schema.properties![currentKey],
-                  valueSchema
-                );
-              }
+            if (!frame.schema.properties[currentKey]) {
+              frame.schema.properties[currentKey] = valueSchema;
+            } else {
+              frame.schema.properties[currentKey] = mergeSchemas(
+                frame.schema.properties[currentKey],
+                valueSchema
+              );
             }
           }
           currentKey = undefined;
         } else if (frame.type === 'array') {
           frame.arrayIndex++;
-          if (getCurrentDepth() <= maxDepth && shouldSample()) {
+          if (getCurrentDepth() < maxDepth && shouldSample()) {
             const valueSchema = createValueSchema(name, value);
             if (!frame.schema.items) {
               frame.schema.items = valueSchema;
