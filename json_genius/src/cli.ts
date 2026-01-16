@@ -9,6 +9,17 @@ import {
   formatSchemaYaml,
   formatSchemaJson,
 } from './analyzer/schema-extractor.js';
+import { sampleData, formatSamples } from './analyzer/sampler.js';
+import { executeQuery, formatQueryResults } from './query/path-query.js';
+import {
+  count,
+  groupBy,
+  stats,
+  distribution,
+  formatGroupByResult,
+  formatStatsResult,
+  formatDistributionResult,
+} from './query/aggregate.js';
 
 const program = new Command();
 
@@ -16,6 +27,16 @@ program
   .name('json-genius')
   .description('Large JSON intelligence for AI agents')
   .version('0.1.0');
+
+async function validateFile(file: string): Promise<{ path: string; sizeMB: string }> {
+  const filePath = resolve(file);
+  const fileStat = await stat(filePath);
+  if (!fileStat.isFile()) {
+    throw new Error(`${filePath} is not a file`);
+  }
+  const sizeMB = (fileStat.size / (1024 * 1024)).toFixed(2);
+  return { path: filePath, sizeMB };
+}
 
 program
   .command('schema')
@@ -38,16 +59,8 @@ program
     }
 
     try {
-      const filePath = resolve(file);
-
-      const fileStat = await stat(filePath);
-      if (!fileStat.isFile()) {
-        console.error(`Error: ${filePath} is not a file`);
-        process.exit(1);
-      }
-
-      const fileSizeMB = (fileStat.size / (1024 * 1024)).toFixed(2);
-      logger.debug(`Processing ${filePath} (${fileSizeMB} MB)`);
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Processing ${filePath} (${sizeMB} MB)`);
 
       const startTime = Date.now();
 
@@ -67,6 +80,250 @@ program
       }
     } catch (err) {
       logger.error(`Schema extraction failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('sample')
+  .description('Extract representative data samples from a JSON file')
+  .argument('<file>', 'Path to the JSON file')
+  .option('--count <n>', 'Number of samples to extract', '3')
+  .option('--path <path>', 'JSONPath-like path to sample from')
+  .option('--entity-type <type>', 'Filter by entity type (e.g., "Player", "PlayerCharacter")')
+  .option('--seed <n>', 'Random seed for reproducible sampling')
+  .option('--truncate <n>', 'Maximum string length before truncation', '200')
+  .option('--depth <n>', 'Maximum depth for nested objects', '10')
+  .option('--format <fmt>', 'Output format (pretty|json)', 'pretty')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file: string, options: {
+    count: string;
+    path?: string;
+    entityType?: string;
+    seed?: string;
+    truncate: string;
+    depth: string;
+    format: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Sampling from ${filePath} (${sizeMB} MB)`);
+
+      const startTime = Date.now();
+
+      const result = await sampleData(filePath, {
+        count: parseInt(options.count, 10),
+        path: options.path,
+        entityType: options.entityType,
+        seed: options.seed ? parseInt(options.seed, 10) : undefined,
+        truncateStrings: parseInt(options.truncate, 10),
+        maxDepth: parseInt(options.depth, 10),
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Sampling completed in ${elapsed}s`);
+
+      console.log(formatSamples(result, options.format as 'json' | 'pretty'));
+    } catch (err) {
+      logger.error(`Sampling failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('query')
+  .description('Execute a path-based query on a JSON file')
+  .argument('<file>', 'Path to the JSON file')
+  .option('--select <fields>', 'Comma-separated fields to select (e.g., "entityId,payload.name")')
+  .option('--filter <expr>', 'Filter expression (e.g., "payload.level > 10")')
+  .option('--limit <n>', 'Maximum number of results', '100')
+  .option('--offset <n>', 'Skip first N results', '0')
+  .option('--format <fmt>', 'Output format (json|table|lines)', 'json')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file: string, options: {
+    select?: string;
+    filter?: string;
+    limit: string;
+    offset: string;
+    format: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Querying ${filePath} (${sizeMB} MB)`);
+
+      const startTime = Date.now();
+
+      const result = await executeQuery(filePath, {
+        select: options.select?.split(',').map(s => s.trim()),
+        filter: options.filter,
+        limit: parseInt(options.limit, 10),
+        offset: parseInt(options.offset, 10),
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Query completed in ${elapsed}s`);
+
+      console.log(formatQueryResults(result, options.format as 'json' | 'table' | 'lines'));
+    } catch (err) {
+      logger.error(`Query failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('count')
+  .description('Count items in a JSON file, optionally with a filter')
+  .argument('<file>', 'Path to the JSON file')
+  .option('--filter <expr>', 'Filter expression (e.g., "payload.level > 10")')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file: string, options: {
+    filter?: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Counting in ${filePath} (${sizeMB} MB)`);
+
+      const startTime = Date.now();
+
+      const result = await count(filePath, { filter: options.filter });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Count completed in ${elapsed}s`);
+
+      console.log(`Count: ${result.total} (scanned ${result.scanned})`);
+    } catch (err) {
+      logger.error(`Count failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('group')
+  .description('Group items by a field value and count occurrences')
+  .argument('<file>', 'Path to the JSON file')
+  .requiredOption('--path <path>', 'Path to the field to group by')
+  .option('--filter <expr>', 'Filter expression')
+  .option('--sort <by>', 'Sort by "key" or "count"', 'count')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file: string, options: {
+    path: string;
+    filter?: string;
+    sort: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Grouping in ${filePath} (${sizeMB} MB)`);
+
+      const startTime = Date.now();
+
+      const result = await groupBy(filePath, {
+        path: options.path,
+        filter: options.filter,
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Group completed in ${elapsed}s`);
+
+      console.log(formatGroupByResult(result, options.sort as 'key' | 'count'));
+    } catch (err) {
+      logger.error(`Group failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('stats')
+  .description('Calculate statistics for a numeric field')
+  .argument('<file>', 'Path to the JSON file')
+  .requiredOption('--path <path>', 'Path to the numeric field')
+  .option('--filter <expr>', 'Filter expression')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file: string, options: {
+    path: string;
+    filter?: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Calculating stats in ${filePath} (${sizeMB} MB)`);
+
+      const startTime = Date.now();
+
+      const result = await stats(filePath, {
+        path: options.path,
+        filter: options.filter,
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Stats completed in ${elapsed}s`);
+
+      console.log(formatStatsResult(result));
+    } catch (err) {
+      logger.error(`Stats failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('distribution')
+  .description('Show distribution of numeric values across buckets')
+  .argument('<file>', 'Path to the JSON file')
+  .requiredOption('--path <path>', 'Path to the numeric field')
+  .option('--buckets <n>', 'Number of buckets', '10')
+  .option('--filter <expr>', 'Filter expression')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (file: string, options: {
+    path: string;
+    buckets: string;
+    filter?: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      const { path: filePath, sizeMB } = await validateFile(file);
+      logger.debug(`Calculating distribution in ${filePath} (${sizeMB} MB)`);
+
+      const startTime = Date.now();
+
+      const result = await distribution(filePath, {
+        path: options.path,
+        filter: options.filter,
+        buckets: parseInt(options.buckets, 10),
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Distribution completed in ${elapsed}s`);
+
+      console.log(formatDistributionResult(result));
+    } catch (err) {
+      logger.error(`Distribution failed: ${err}`);
       process.exit(1);
     }
   });
