@@ -1,10 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
+cd /d "%~dp0"
 echo Starting Codebase Chat...
 echo.
 
 :: Allocate port using helper script
-for /f "tokens=1" %%a in ('node "%AGENT_SETUP_PATH%\prompts\scripts\get-port.mjs" 3002') do (
+for /f "tokens=1" %%a in ('node "%~dp0scripts\get-port.mjs" 3002') do (
     set CHAT_PORT=%%a
 )
 echo [PORTS] Chat: %CHAT_PORT%
