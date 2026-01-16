@@ -7,7 +7,7 @@ import { executeQuery } from '../query/path-query.js';
 import { count, groupBy, stats } from '../query/aggregate.js';
 import { findRelationships } from '../analyzer/relationship-finder.js';
 import { resolveType, closeClient } from '../type-resolver/mcp-bridge.js';
-import { executeJoin } from '../query/join.js';
+import { executeJoin, executeAggregatedJoin } from '../query/join.js';
 import { runReport, AVAILABLE_REPORTS, type ReportName } from '../analytics/reports.js';
 
 export const tools: Tool[] = [
@@ -120,7 +120,7 @@ export const tools: Tool[] = [
   },
   {
     name: 'join_files',
-    description: 'Cross-file query using relationships',
+    description: 'Cross-file query using relationships. Supports optional group_by and aggregate for analytics without returning raw records.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -129,11 +129,20 @@ export const tools: Tool[] = [
         select: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Fields to select (prefix with a. or b.)',
+          description: 'Fields to select (prefix with a. or b.). Ignored when using group_by.',
         },
         filter: { type: 'string', description: 'Filter expression (prefix paths with a. or b.)' },
         leftKey: { type: 'string', description: 'Path to join key in left file' },
         rightKey: { type: 'string', description: 'Path to join key in right file' },
+        group_by: {
+          type: 'string',
+          description: 'Path to group joined records by (prefix with a. or b.). When specified, returns aggregated results.',
+        },
+        aggregate: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+          description: 'Aggregate expressions. Keys are output field names, values are expressions like COUNT(*), SUM(b.field), AVG(a.field), MIN, MAX, COUNT_IF, D1_RETENTION(path), D7_RETENTION(path).',
+        },
       },
       required: ['file1', 'file2'],
     },
@@ -483,6 +492,27 @@ async function handleJoinFiles(args: ToolArgs): Promise<CallToolResult> {
   const filter = args.filter as string | undefined;
   const leftKey = args.leftKey as string | undefined;
   const rightKey = args.rightKey as string | undefined;
+  const group_by = args.group_by as string | undefined;
+  const aggregate = args.aggregate as Record<string, string> | undefined;
+
+  if (group_by && aggregate) {
+    const result = await executeAggregatedJoin(filePath1, filePath2, {
+      filter,
+      leftKey,
+      rightKey,
+      group_by,
+      aggregate,
+    });
+
+    return successResult({
+      groups: result.groups,
+      totals: result.totals,
+      totalMatched: result.totalMatched,
+      leftScanned: result.leftScanned,
+      rightScanned: result.rightScanned,
+      joinKeys: result.joinKeys,
+    });
+  }
 
   const result = await executeJoin(filePath1, filePath2, {
     select,

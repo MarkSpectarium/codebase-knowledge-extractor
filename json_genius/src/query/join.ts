@@ -2,6 +2,14 @@ import { createJsonArrayStream } from '../streaming/json-stream.js';
 import { getValueAtPath, getValuesAtPath } from './path-query.js';
 import { findRelationships } from '../analyzer/relationship-finder.js';
 import { logger } from '../utils/logger.js';
+import {
+  parseAggregateMap,
+  type ParsedAggregate,
+  type GroupAccumulators,
+  accumulateGroup,
+  finalizeGroups,
+  calculateTotals,
+} from './aggregators.js';
 
 export interface JoinOptions {
   leftKey?: string;
@@ -9,10 +17,25 @@ export interface JoinOptions {
   select?: string[];
   filter?: string;
   limit?: number;
+  group_by?: string;
+  aggregate?: Record<string, string>;
 }
 
 export interface JoinResult<T = unknown> {
   items: T[];
+  totalMatched: number;
+  leftScanned: number;
+  rightScanned: number;
+  joinKeys: {
+    leftKey: string;
+    rightKey: string;
+    autoDetected: boolean;
+  };
+}
+
+export interface AggregatedJoinResult {
+  groups: Record<string, Record<string, number>>;
+  totals: Record<string, number>;
   totalMatched: number;
   leftScanned: number;
   rightScanned: number;
@@ -208,6 +231,129 @@ async function buildRightIndex(
   }
 
   return { index, scanned };
+}
+
+function extractGroupKeyValue(
+  groupByPath: string,
+  left: unknown,
+  right: unknown
+): string {
+  let targetObj: unknown;
+  let actualPath = groupByPath;
+
+  if (groupByPath.startsWith('a.')) {
+    targetObj = left;
+    actualPath = groupByPath.slice(2);
+  } else if (groupByPath.startsWith('b.')) {
+    targetObj = right;
+    actualPath = groupByPath.slice(2);
+  } else {
+    targetObj = left;
+  }
+
+  const value = getValueAtPath(targetObj, actualPath);
+  return value === null ? 'null' : value === undefined ? 'undefined' : String(value);
+}
+
+export async function executeAggregatedJoin(
+  leftFile: string,
+  rightFile: string,
+  options: JoinOptions
+): Promise<AggregatedJoinResult> {
+  let { leftKey, rightKey } = options;
+  const { filter, group_by, aggregate } = options;
+  let autoDetected = false;
+
+  if (!group_by) {
+    throw new Error('group_by is required for aggregated join');
+  }
+  if (!aggregate || Object.keys(aggregate).length === 0) {
+    throw new Error('aggregate is required for aggregated join');
+  }
+
+  const parsedAggregates = parseAggregateMap(aggregate);
+  if (parsedAggregates.length === 0) {
+    throw new Error('No valid aggregate expressions found');
+  }
+
+  if (!leftKey || !rightKey) {
+    logger.debug('Auto-detecting relationship between files');
+
+    const relationshipResult = await findRelationships(leftFile, rightFile, { minCoverage: 30 });
+
+    if (relationshipResult.relationships.length === 0) {
+      throw new Error('No relationship detected between files. Please specify leftKey and rightKey explicitly.');
+    }
+
+    const bestMatch = relationshipResult.relationships[0];
+    leftKey = bestMatch.leftPath;
+    rightKey = bestMatch.rightPath;
+    autoDetected = true;
+
+    logger.debug(`Auto-detected join keys: ${leftKey} -> ${rightKey}`);
+  }
+
+  let filterCondition: FilterCondition | null = null;
+  if (filter) {
+    filterCondition = parseJoinFilter(filter);
+    if (!filterCondition) {
+      logger.warn(`Invalid filter expression: ${filter}`);
+    }
+  }
+
+  logger.debug(`Building index on right file: ${rightKey}`);
+  const { index: rightIndex, scanned: rightScanned } = await buildRightIndex(rightFile, rightKey);
+  logger.debug(`Built index with ${rightIndex.size} unique keys from ${rightScanned} entities`);
+
+  const leftStream = createJsonArrayStream<unknown>(leftFile, { pickPath: 'entities' });
+
+  const groupAccumulators: GroupAccumulators = {};
+  let totalMatched = 0;
+  let leftScanned = 0;
+
+  logger.debug(`Scanning left file with key: ${leftKey}`);
+
+  for await (const { value: leftEntity } of leftStream) {
+    leftScanned++;
+
+    const leftKeys = getValuesAtPath(leftEntity, leftKey);
+
+    for (const lk of leftKeys) {
+      if (lk === undefined || lk === null) continue;
+
+      const keyStr = String(lk);
+      const rightMatches = rightIndex.get(keyStr) ?? [];
+
+      for (const rightEntity of rightMatches) {
+        if (filterCondition && !matchesJoinFilter(leftEntity, rightEntity, filterCondition)) {
+          continue;
+        }
+
+        totalMatched++;
+
+        const groupKey = extractGroupKeyValue(group_by, leftEntity, rightEntity);
+        accumulateGroup(groupAccumulators, groupKey, parsedAggregates, leftEntity, rightEntity);
+      }
+    }
+  }
+
+  const groups = finalizeGroups(groupAccumulators, parsedAggregates);
+  const totals = calculateTotals(groups, parsedAggregates);
+
+  logger.debug(`Aggregated join complete: scanned ${leftScanned} left, ${rightScanned} right, matched ${totalMatched}, groups ${Object.keys(groups).length}`);
+
+  return {
+    groups,
+    totals,
+    totalMatched,
+    leftScanned,
+    rightScanned,
+    joinKeys: {
+      leftKey,
+      rightKey,
+      autoDetected,
+    },
+  };
 }
 
 export async function executeJoin<T = unknown>(
