@@ -1,6 +1,12 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { logger } from '../utils/logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_CODE_KNOWLEDGE_PATH = path.resolve(__dirname, '../../..', 'code_knowledge');
+const DEFAULT_DATA_DIR = path.resolve(DEFAULT_CODE_KNOWLEDGE_PATH, '..', 'data');
 
 export interface TypeInfo {
   name: string;
@@ -42,10 +48,11 @@ async function getClient(): Promise<Client> {
   }
 
   const isWindows = process.platform === 'win32';
+  const codeKnowledgePath = DEFAULT_CODE_KNOWLEDGE_PATH;
+  const dataDir = DEFAULT_DATA_DIR;
   const command = isWindows ? 'cmd' : 'sh';
-  const args = isWindows
-    ? ['/c', 'cd code_knowledge && npx codebase-knowledge-extractor serve --data-dir ../data']
-    : ['-c', 'cd code_knowledge && npx codebase-knowledge-extractor serve --data-dir ../data'];
+  const serveCommand = `cd "${codeKnowledgePath}" && npx codebase-knowledge-extractor serve --data-dir "${dataDir}"`;
+  const args = isWindows ? ['/c', serveCommand] : ['-c', serveCommand];
 
   transport = new StdioClientTransport({
     command,
@@ -139,6 +146,70 @@ function parseTypeInfo(data: unknown): TypeInfo | null {
   };
 }
 
+function parseDependenciesResponse(result: unknown): TypeInfo[] | null {
+  if (!result || typeof result !== 'object') {
+    return null;
+  }
+
+  const response = result as Record<string, unknown>;
+
+  if ('content' in response && Array.isArray(response.content)) {
+    const textContent = response.content.find(
+      (c: unknown) => c && typeof c === 'object' && (c as Record<string, unknown>).type === 'text'
+    ) as { text: string } | undefined;
+
+    if (textContent?.text) {
+      try {
+        const parsed = JSON.parse(textContent.text);
+        if (parsed.error) {
+          return null;
+        }
+        return extractDependencyTypes(parsed);
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return extractDependencyTypes(response);
+}
+
+function extractDependencyTypes(data: unknown): TypeInfo[] | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const obj = data as Record<string, unknown>;
+  const types: TypeInfo[] = [];
+
+  // get_dependencies returns { incoming: DependencyRef[], outgoing: DependencyRef[] }
+  // where DependencyRef is { symbol: string, file: string, namespace?: string }
+  const incoming = Array.isArray(obj.incoming) ? obj.incoming : [];
+  const outgoing = Array.isArray(obj.outgoing) ? obj.outgoing : [];
+
+  const allDeps = [...incoming, ...outgoing];
+  const seen = new Set<string>();
+
+  for (const dep of allDeps) {
+    if (!dep || typeof dep !== 'object') continue;
+    const ref = dep as Record<string, unknown>;
+    const symbol = ref.symbol ? String(ref.symbol) : null;
+    if (!symbol || seen.has(symbol)) continue;
+    seen.add(symbol);
+
+    const namespace = ref.namespace ? String(ref.namespace) : undefined;
+    types.push({
+      name: symbol,
+      fullName: namespace ? `${namespace}.${symbol}` : symbol,
+      kind: 'unknown',
+      namespace,
+      file: ref.file ? String(ref.file) : undefined,
+    });
+  }
+
+  return types.length > 0 ? types : null;
+}
+
 export async function resolveType(
   typeName: string,
   options: TypeResolutionOptions
@@ -150,15 +221,21 @@ export async function resolveType(
 
     const parts = typeName.split('.');
     const shortName = parts[parts.length - 1];
+    const namespace = parts.length > 1 ? parts.slice(0, -1).join('.') : undefined;
 
-    logger.debug(`Looking up symbol: ${shortName} in project: ${project}`);
+    logger.debug(`Looking up symbol: ${shortName}${namespace ? ` in namespace ${namespace}` : ''} in project: ${project}`);
+
+    const getSymbolArgs: Record<string, string> = {
+      project,
+      name: shortName,
+    };
+    if (namespace) {
+      getSymbolArgs.namespace = namespace;
+    }
 
     const result = await mcpClient.callTool({
       name: 'get_symbol',
-      arguments: {
-        project,
-        name: shortName,
-      },
+      arguments: getSymbolArgs,
     });
 
     const typeInfo = parseSymbolResponse(result);
@@ -180,15 +257,13 @@ export async function resolveType(
           name: 'get_dependencies',
           arguments: {
             project,
-            symbolName: shortName,
+            symbol: shortName,
           },
         });
 
-        const depsData = parseSymbolResponse(depsResult);
-        if (depsData && Array.isArray((depsData as unknown as Record<string, unknown>).types)) {
-          dependencies = ((depsData as unknown as Record<string, unknown>).types as unknown[])
-            .map(parseTypeInfo)
-            .filter((t): t is TypeInfo => t !== null);
+        const depsData = parseDependenciesResponse(depsResult);
+        if (depsData) {
+          dependencies = depsData;
         }
       } catch (err) {
         logger.debug(`Failed to get dependencies: ${err}`);
