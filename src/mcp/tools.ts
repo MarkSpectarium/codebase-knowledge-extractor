@@ -100,6 +100,11 @@ export const tools: Tool[] = [
         project: { type: 'string', description: 'Knowledge base name' },
         task: { type: 'string', description: 'Natural language task description' },
         maxFiles: { type: 'number', description: 'Maximum files to return (default: 10)' },
+        excludePaths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Path prefixes to exclude (e.g., ["MetaplaySDK/", "Packages/"])',
+        },
       },
       required: ['project', 'task'],
     },
@@ -290,6 +295,7 @@ async function handleFindRelevantFiles(kb: KnowledgeBase, args: ToolArgs): Promi
 
   const context = await generateContext(kb, task, {
     maxFiles: (args.maxFiles as number) ?? 10,
+    excludePaths: args.excludePaths as string[] | undefined,
   });
 
   return successResult({

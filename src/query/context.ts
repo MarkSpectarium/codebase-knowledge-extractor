@@ -10,6 +10,7 @@ import type {
 export interface ContextOptions {
   maxFiles?: number;
   includeDeps?: boolean;
+  excludePaths?: string[];
 }
 
 interface ScoredFile {
@@ -24,11 +25,24 @@ export async function generateContext(
   task: string,
   options: ContextOptions = {}
 ): Promise<ContextResult> {
-  const { maxFiles = 10, includeDeps = false } = options;
+  const { maxFiles = 10, includeDeps = false, excludePaths } = options;
   const allFileSymbols = await kb.getAllFileSymbols();
 
+  let filesToScore = allFileSymbols;
+  if (excludePaths?.length) {
+    filesToScore = allFileSymbols.filter((fs) =>
+      !excludePaths.some((pattern) => {
+        const normalizedPattern = pattern.replace(/\*+$/, '');
+        return (
+          fs.relativePath.startsWith(normalizedPattern) ||
+          fs.relativePath.includes(`/${normalizedPattern}`)
+        );
+      })
+    );
+  }
+
   const tokens = tokenize(task);
-  const scored = scoreFiles(allFileSymbols, tokens);
+  const scored = scoreFiles(filesToScore, tokens);
   const topFiles = scored.slice(0, maxFiles);
 
   const contextFiles: ContextFile[] = topFiles.map((sf) => ({
