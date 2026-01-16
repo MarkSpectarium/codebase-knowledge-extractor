@@ -42,7 +42,7 @@ export async function startMcpServer(options: McpServerOptions): Promise<void> {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    return handleTool(name, args ?? {}, getKnowledgeBase);
+    return handleTool(name, args ?? {}, getKnowledgeBase, absoluteDataDir);
   });
 
   const transport = new StdioServerTransport();

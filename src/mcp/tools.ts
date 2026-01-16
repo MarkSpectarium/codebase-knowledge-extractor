@@ -1,5 +1,5 @@
 import type { Tool, CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js';
-import type { KnowledgeBase } from '../knowledge-base/index.js';
+import { KnowledgeBase } from '../knowledge-base/index.js';
 import {
   search,
   getDependencies,
@@ -11,6 +11,15 @@ import {
 } from '../query/index.js';
 
 export const tools: Tool[] = [
+  {
+    name: 'list_projects',
+    description: 'List all available knowledge base projects',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
   {
     name: 'search_symbols',
     description: 'Search for symbols by name across the knowledge base',
@@ -161,11 +170,21 @@ function successResult(data: unknown): CallToolResult {
   };
 }
 
+async function handleListProjects(dataDir: string): Promise<CallToolResult> {
+  const projects = await KnowledgeBase.listProjects(dataDir);
+  return successResult({ projects });
+}
+
 export async function handleTool(
   name: string,
   args: ToolArgs,
-  getKnowledgeBase: (project: string) => Promise<KnowledgeBase | null>
+  getKnowledgeBase: (project: string) => Promise<KnowledgeBase | null>,
+  dataDir: string
 ): Promise<CallToolResult> {
+  if (name === 'list_projects') {
+    return handleListProjects(dataDir);
+  }
+
   const project = args.project as string | undefined;
   if (!project) {
     return errorResult('Missing required parameter: project');
