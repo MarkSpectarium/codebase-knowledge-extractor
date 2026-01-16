@@ -9,6 +9,7 @@ import { findRelationships } from '../analyzer/relationship-finder.js';
 import { resolveType, closeClient } from '../type-resolver/mcp-bridge.js';
 import { executeJoin } from '../query/join.js';
 import { runReport, AVAILABLE_REPORTS, type ReportName } from '../analytics/reports.js';
+import { describeDataset } from '../analyzer/dataset-discovery.js';
 
 export const tools: Tool[] = [
   {
@@ -154,6 +155,17 @@ export const tools: Tool[] = [
       required: ['directory', 'report'],
     },
   },
+  {
+    name: 'describe_dataset',
+    description: 'Get complete overview of a dataset directory: file info, relationships, key fields, and suggested queries',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        directory: { type: 'string', description: 'Directory containing JSON files to analyze' },
+      },
+      required: ['directory'],
+    },
+  },
 ];
 
 export interface ToolArgs {
@@ -214,6 +226,8 @@ export async function handleTool(
         return handleJoinFiles(args);
       case 'run_report':
         return handleRunReport(args);
+      case 'describe_dataset':
+        return handleDescribeDataset(args);
       default:
         return errorResult(`Unknown tool: ${name}`);
     }
@@ -522,4 +536,16 @@ async function handleRunReport(args: ToolArgs): Promise<CallToolResult> {
     report: result.report,
     data: result.data,
   });
+}
+
+async function handleDescribeDataset(args: ToolArgs): Promise<CallToolResult> {
+  const directory = args.directory as string | undefined;
+
+  if (!directory) {
+    return errorResult('Missing required parameter: directory');
+  }
+
+  const result = await describeDataset(directory);
+
+  return successResult(result);
 }
