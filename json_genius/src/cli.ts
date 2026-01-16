@@ -33,6 +33,13 @@ import {
   executeJoin,
   formatJoinResults,
 } from './query/join.js';
+import {
+  runReport,
+  formatReportResult,
+  AVAILABLE_REPORTS,
+  type ReportName,
+} from './analytics/reports.js';
+import { startMcpServer } from './mcp/server.js';
 
 const program = new Command();
 
@@ -457,6 +464,61 @@ program
       console.log(formatJoinResults(result));
     } catch (err) {
       logger.error(`Join failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('analyze')
+  .description('Run pre-built analytics reports on a directory of JSON files')
+  .argument('<directory>', 'Directory containing JSON files')
+  .requiredOption('--report <name>', `Report name (${AVAILABLE_REPORTS.join(', ')})`)
+  .option('--format <fmt>', 'Output format (text|json)', 'text')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .action(async (directory: string, options: {
+    report: string;
+    format: string;
+    verbose?: boolean;
+  }) => {
+    if (options.verbose) {
+      logger.setLevel('debug');
+    }
+
+    try {
+      if (!AVAILABLE_REPORTS.includes(options.report as ReportName)) {
+        logger.error(`Unknown report: ${options.report}. Available: ${AVAILABLE_REPORTS.join(', ')}`);
+        process.exit(1);
+      }
+
+      const startTime = Date.now();
+
+      const result = await runReport(directory, options.report as ReportName, {
+        format: options.format as 'text' | 'json',
+      });
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      logger.debug(`Report completed in ${elapsed}s`);
+
+      console.log(formatReportResult(result, options.format as 'text' | 'json'));
+    } catch (err) {
+      logger.error(`Report failed: ${err}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('serve')
+  .description('Start the MCP server for AI agent tool access')
+  .option('--data-dir <dir>', 'Working directory for file operations')
+  .action(async (options: {
+    dataDir?: string;
+  }) => {
+    try {
+      await startMcpServer({
+        dataDir: options.dataDir,
+      });
+    } catch (err) {
+      logger.error(`MCP server failed: ${err}`);
       process.exit(1);
     }
   });
