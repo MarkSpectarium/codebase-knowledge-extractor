@@ -25,6 +25,7 @@ export const tools: Tool[] = [
           description: 'Symbol kind filter',
         },
         namespace: { type: 'string', description: 'Namespace prefix filter' },
+        pathFilter: { type: 'string', description: 'File path prefix filter (e.g., "Assets/Scripts/")' },
         limit: { type: 'number', description: 'Maximum results (default: 20)' },
       },
       required: ['project', 'query'],
@@ -209,6 +210,7 @@ async function handleSearchSymbols(kb: KnowledgeBase, args: ToolArgs): Promise<C
   const result = await search(kb, query, {
     kind: args.kind as SearchableKind | undefined,
     namespace: args.namespace as string | undefined,
+    pathFilter: args.pathFilter as string | undefined,
     limit: (args.limit as number) ?? 20,
   });
 

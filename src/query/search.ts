@@ -4,6 +4,7 @@ import type { SearchResult, SearchMatch, SearchableKind } from './types.js';
 export interface SearchOptions {
   kind?: SearchableKind;
   namespace?: string;
+  pathFilter?: string;
   limit?: number;
 }
 
@@ -12,13 +13,17 @@ export async function search(
   term: string,
   options: SearchOptions = {}
 ): Promise<SearchResult> {
-  const { kind, namespace, limit = 50 } = options;
+  const { kind, namespace, pathFilter, limit = 50 } = options;
   const termLower = term.toLowerCase();
   const matches: SearchMatch[] = [];
 
   const allFileSymbols = await kb.getAllFileSymbols();
 
   for (const fileSymbols of allFileSymbols) {
+    if (pathFilter && !fileSymbols.relativePath.startsWith(pathFilter)) {
+      continue;
+    }
+
     for (const symbol of fileSymbols.symbols) {
       if (namespace && !symbol.namespace?.startsWith(namespace)) {
         continue;
