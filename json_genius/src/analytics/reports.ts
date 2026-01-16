@@ -86,7 +86,7 @@ async function runPlayerKpisReport(directory: string): Promise<ReportResult> {
       if (entityId?.startsWith('PlayerCharacter:')) {
         (data.totalCharacters as number)++;
 
-        const charClass = getValueAtPath(value, 'payload.characterClass') as string | undefined;
+        const charClass = getValueAtPath(value, 'payload.character.characterClassId') as string | undefined;
         if (charClass) {
           classCount[charClass] = (classCount[charClass] || 0) + 1;
         }
