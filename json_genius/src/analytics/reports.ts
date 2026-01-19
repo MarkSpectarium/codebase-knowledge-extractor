@@ -70,7 +70,7 @@ async function runPlayerKpisReport(directory: string): Promise<ReportResult> {
         (data.totalPlayers as number)++;
 
         const playerName = getValueAtPath(value, 'payload.playerName') as string | undefined;
-        const charIds = getValuesAtPath(value, 'payload.characterIds[*]');
+        const charIds = getValuesAtPath(value, 'payload.characterRoster.characterIds[*]');
         const characterCount = charIds.length;
         playerCharCounts.push(characterCount);
       }
