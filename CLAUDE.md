@@ -8,7 +8,7 @@ A collection of tools for managing, extracting, and preparing data for AI agents
 A CLI tool that creates a queryable knowledge base from codebases, enabling AI agents to quickly identify which files are relevant to any task.
 
 ### json_genius
-(Future project - not yet implemented)
+A CLI tool for token-efficient large JSON intelligence. Enables AI agents to analyze large JSON datasets (game telemetry, API dumps, etc.) without loading entire files into context.
 
 ## Shared Directory
 
@@ -61,8 +61,21 @@ codebase-knowledge-extractor/
 │   │       └── Program.cs
 │   ├── package.json
 │   └── tsconfig.json
-├── json_genius/                       # Future project (empty)
+├── json_genius/                       # Large JSON intelligence tool
+│   ├── src/
+│   │   ├── cli.ts
+│   │   ├── streaming/                 # Memory-efficient JSON parsing
+│   │   ├── analyzer/                  # Schema, sampling, relationships
+│   │   ├── query/                     # Path queries, aggregations, joins
+│   │   ├── analytics/                 # Pre-built KPI reports
+│   │   ├── type-resolver/             # $type resolution via codebase-kb
+│   │   └── mcp/                       # MCP server
+│   ├── scripts/                       # Custom analysis scripts
+│   ├── package.json
+│   └── tsconfig.json
 ├── data/                              # Shared output directory (gitignored)
+│   ├── LiveTest/                      # Test dataset (live.json, chars.json)
+│   └── myths/                         # Indexed C# codebase
 └── CLAUDE.md
 ```
 
@@ -226,3 +239,219 @@ Available tools:
 - Phase 4: Dependency graph visualization
 - Phase 6: Incremental updates
 - Phase 7: Other languages beyond C#
+
+---
+
+# json_genius - Large JSON Intelligence
+
+## Purpose
+
+Analyze large JSON files (50MB+) token-efficiently using streaming. Designed for:
+- Game telemetry data (player stats, character data)
+- API database dumps
+- Any large JSON datasets
+
+## Tech Stack
+
+- **Runtime**: Node.js 20+ with TypeScript (ES modules)
+- **Streaming**: stream-json for memory-efficient parsing
+- **CLI**: Commander.js
+- **Testing**: Vitest
+
+## CLI Commands
+
+All commands should be run from the `json_genius/` directory:
+
+```bash
+cd json_genius
+
+# Schema extraction - understand structure without loading full file
+npx json-genius schema <file> [--depth <n>] [--format yaml|json]
+
+# Sample data - get representative examples
+npx json-genius sample <file> --count <n> [--path <jsonpath>]
+
+# Query - filter and select data
+npx json-genius query <file> --select <paths> [--filter <expr>] [--limit <n>]
+
+# Count entities
+npx json-genius count <file> [--filter <expr>]
+
+# Group by field
+npx json-genius group <file> --path <field> [--sort key|count]
+
+# Numeric statistics
+npx json-genius stats <file> --path <field>
+
+# Cross-file relationships
+npx json-genius relationships <file1> <file2>
+
+# Cross-file joins
+npx json-genius join <file1> <file2> [--left-key <path>] [--right-key <path>]
+
+# Pre-built analytics reports
+npx json-genius analyze <directory> --report <name> [--format text|json]
+
+# MCP server
+npx json-genius serve
+```
+
+## Analytics Reports
+
+Pre-built reports for common KPI analysis:
+
+```bash
+# Player KPIs - counts, characters per player, class distribution
+npx json-genius analyze ../data/LiveTest --report player-kpis
+
+# Retention - D1/D3/D7 rates, new vs returning
+npx json-genius analyze ../data/LiveTest --report retention
+
+# Progression - level distribution (uses max item level as proxy)
+npx json-genius analyze ../data/LiveTest --report progression
+
+# Schema summary - quick overview of all JSON files
+npx json-genius analyze ../data/LiveTest --report schema-summary
+```
+
+### Expected Data Structure
+
+Reports expect Metaplay-style entity dumps:
+```json
+{
+  "$type": "...",
+  "entities": [
+    {
+      "entityId": "Player:abc123",
+      "payload": { /* player data */ }
+    }
+  ]
+}
+```
+
+- `live.json` - Player entities (entityId starts with "Player:")
+- `chars.json` - Character entities (entityId starts with "PlayerCharacter:")
+
+### Key Data Paths
+
+| Data | Path |
+|------|------|
+| Player ID | `entityId` |
+| Character IDs | `payload.characterRoster.characterIds[*]` |
+| Character Class | `payload.character.characterClassId` |
+| Item Level | `payload..itemLevel` (recursive, use max as character level proxy) |
+| Device History | `payload.deviceHistory[*]` |
+
+## Development
+
+```bash
+cd json_genius
+
+# Install dependencies
+pnpm install
+
+# Build
+pnpm build
+
+# Type check
+pnpm typecheck
+
+# Run tests
+pnpm test
+pnpm test:watch
+```
+
+## Project Structure
+
+```
+json_genius/
+├── src/
+│   ├── cli.ts                    # Main CLI entry point
+│   ├── streaming/
+│   │   └── json-stream.ts        # Memory-efficient JSON streaming
+│   ├── analyzer/
+│   │   ├── schema-extractor.ts   # Compact schema extraction
+│   │   ├── sampler.ts            # Representative sampling
+│   │   ├── relationship-finder.ts # Cross-file link detection
+│   │   └── dataset-discovery.ts  # Auto-detect dataset structure
+│   ├── query/
+│   │   ├── path-query.ts         # JSONPath-like queries
+│   │   ├── aggregate.ts          # Group by, stats
+│   │   ├── aggregators.ts        # Aggregation functions
+│   │   └── join.ts               # Cross-file joins
+│   ├── analytics/
+│   │   ├── reports.ts            # Pre-built KPI reports
+│   │   └── reports.test.ts       # Report tests
+│   ├── type-resolver/
+│   │   └── mcp-bridge.ts         # Resolve $type via codebase-kb
+│   ├── mcp/
+│   │   ├── server.ts             # MCP server setup
+│   │   └── tools.ts              # MCP tool definitions
+│   └── utils/
+│       └── logger.ts
+├── scripts/
+│   └── calc-avg-level.mjs        # Example: calculate avg level from items
+├── package.json
+└── tsconfig.json
+```
+
+## MCP Server
+
+Expose json_genius tools to Claude Code:
+
+```bash
+# Windows
+claude mcp add json-genius -s project -- cmd /c "cd json_genius && npx json-genius serve"
+
+# macOS/Linux
+claude mcp add json-genius -s project -- sh -c "cd json_genius && npx json-genius serve"
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_schema` | Extract compact schema |
+| `sample_data` | Get sample entities |
+| `query_json` | Run path-based queries |
+| `count_entities` | Count with optional filter |
+| `group_by` | Group and count by field |
+| `get_stats` | Numeric field statistics |
+| `find_relationships` | Discover cross-file links |
+| `resolve_type` | Look up $type in codebase KB |
+| `join_files` | Cross-file query |
+| `run_report` | Run pre-built analytics report |
+| `describe_dataset` | Auto-discover dataset structure |
+
+## Example: Generate KPI Report
+
+```bash
+cd json_genius
+
+# Quick KPI overview
+npx json-genius analyze ../data/LiveTest --report player-kpis
+
+# Output:
+# Total Players: 127
+# Total Characters: 210
+# Characters Per Player: avg 1.31, max 5
+# Character Class Distribution: Thor_Class (123), ChacChel_Class (87)
+
+# Get JSON for programmatic use
+npx json-genius analyze ../data/LiveTest --report player-kpis --format json
+```
+
+## Custom Analysis Scripts
+
+For metrics not covered by built-in reports, create scripts in `json_genius/scripts/`:
+
+```javascript
+// scripts/calc-avg-level.mjs
+import { createJsonArrayStream } from '../dist/streaming/json-stream.js';
+
+const stream = createJsonArrayStream('../data/LiveTest/chars.json', { pickPath: 'entities' });
+
+for await (const { value } of stream) {
+  // Process each entity without loading full file
+}
+```
