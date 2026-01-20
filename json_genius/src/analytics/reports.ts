@@ -5,7 +5,7 @@ import { extractSchema, formatSchemaYaml } from '../analyzer/schema-extractor.js
 import { getValueAtPath, getValuesAtPath } from '../query/path-query.js';
 import { logger } from '../utils/logger.js';
 
-export type ReportName = 'player-kpis' | 'retention' | 'progression' | 'schema-summary';
+export type ReportName = 'player-kpis' | 'retention' | 'retention-by-class' | 'progression' | 'schema-summary';
 
 export interface ReportOptions {
   format?: 'text' | 'json';
@@ -270,6 +270,192 @@ function formatRetention(data: Record<string, unknown>): string {
   return lines.join('\n');
 }
 
+interface ClassRetentionStats {
+  totalPlayers: number;
+  d1: { count: number; rate: number };
+  d3: { count: number; rate: number };
+  d7: { count: number; rate: number };
+  newPlayers: number;
+  returningPlayers: number;
+}
+
+async function runRetentionByClassReport(directory: string): Promise<ReportResult> {
+  const files = await findJsonFiles(directory);
+  const liveFile = files.find(f => f.name === 'live.json');
+  const charsFile = files.find(f => f.name === 'chars.json');
+
+  // Step 1: Build playerId → Set<characterClass> mapping from chars.json
+  const playerClasses = new Map<string, Set<string>>();
+
+  if (charsFile) {
+    logger.debug(`Processing chars.json to map players to character classes`);
+    const stream = createJsonArrayStream<unknown>(charsFile.path, { pickPath: 'entities' });
+
+    for await (const { value } of stream) {
+      const entityId = getValueAtPath(value, 'entityId') as string | undefined;
+      if (!entityId?.startsWith('PlayerCharacter:')) continue;
+
+      const playerId = getValueAtPath(value, 'payload.playerId') as string | undefined;
+      const charClass = getValueAtPath(value, 'payload.character.characterClassId') as string | undefined;
+
+      if (playerId && charClass) {
+        if (!playerClasses.has(playerId)) {
+          playerClasses.set(playerId, new Set());
+        }
+        playerClasses.get(playerId)!.add(charClass);
+      }
+    }
+  }
+
+  // Step 2: Calculate retention per class
+  const classStats = new Map<string, {
+    total: number;
+    d1: number;
+    d3: number;
+    d7: number;
+    newPlayers: number;
+    returning: number;
+  }>();
+
+  if (liveFile) {
+    logger.debug(`Processing live.json for retention stats by class`);
+    const stream = createJsonArrayStream<unknown>(liveFile.path, { pickPath: 'entities' });
+
+    const day1 = 24 * 60 * 60 * 1000;
+    const day3 = 3 * day1;
+    const day7 = 7 * day1;
+
+    for await (const { value } of stream) {
+      const entityId = getValueAtPath(value, 'entityId') as string | undefined;
+      if (!entityId?.startsWith('Player:')) continue;
+
+      // Get classes for this player
+      const classes = playerClasses.get(entityId);
+      if (!classes || classes.size === 0) continue;
+
+      // Calculate retention for this player
+      const deviceHistory = getValuesAtPath(value, 'payload.deviceHistory[*]');
+      const loginEvents = getValuesAtPath(value, 'payload.loginHistory[*]');
+
+      const timestamps: number[] = [];
+
+      for (const dh of deviceHistory) {
+        if (typeof dh === 'object' && dh !== null) {
+          const firstLogin = getValueAtPath(dh, 'firstLogin') as string | number | undefined;
+          const lastLogin = getValueAtPath(dh, 'lastLogin') as string | number | undefined;
+          const firstSeenAt = getValueAtPath(dh, 'firstSeenAt') as string | number | undefined;
+          const lastLoginAt = getValueAtPath(dh, 'lastLoginAt') as string | number | undefined;
+
+          for (const ts of [firstLogin, lastLogin, firstSeenAt, lastLoginAt]) {
+            if (ts) {
+              const parsed = typeof ts === 'string' ? new Date(ts).getTime() : ts;
+              if (!isNaN(parsed)) timestamps.push(parsed);
+            }
+          }
+        }
+      }
+
+      for (const le of loginEvents) {
+        if (typeof le === 'object' && le !== null) {
+          const timestamp = getValueAtPath(le, 'timestamp') as string | number | undefined;
+          if (timestamp) {
+            const ts = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+            if (!isNaN(ts)) timestamps.push(ts);
+          }
+        }
+      }
+
+      let daysSinceFirst = 0;
+      let isNew = true;
+
+      if (timestamps.length > 0) {
+        const firstTs = Math.min(...timestamps);
+        const lastTs = Math.max(...timestamps);
+        daysSinceFirst = (lastTs - firstTs) / day1;
+        isNew = daysSinceFirst < 1;
+      }
+
+      // Attribute to each class this player has
+      for (const charClass of classes) {
+        if (!classStats.has(charClass)) {
+          classStats.set(charClass, { total: 0, d1: 0, d3: 0, d7: 0, newPlayers: 0, returning: 0 });
+        }
+        const stats = classStats.get(charClass)!;
+        stats.total++;
+
+        if (isNew) {
+          stats.newPlayers++;
+        } else {
+          stats.returning++;
+        }
+
+        if (daysSinceFirst >= 1) stats.d1++;
+        if (daysSinceFirst >= 3) stats.d3++;
+        if (daysSinceFirst >= 7) stats.d7++;
+      }
+    }
+  }
+
+  // Build result
+  const byClass: Record<string, ClassRetentionStats> = {};
+
+  for (const [className, stats] of classStats) {
+    byClass[className] = {
+      totalPlayers: stats.total,
+      d1: {
+        count: stats.d1,
+        rate: stats.total > 0 ? parseFloat(((stats.d1 / stats.total) * 100).toFixed(1)) : 0,
+      },
+      d3: {
+        count: stats.d3,
+        rate: stats.total > 0 ? parseFloat(((stats.d3 / stats.total) * 100).toFixed(1)) : 0,
+      },
+      d7: {
+        count: stats.d7,
+        rate: stats.total > 0 ? parseFloat(((stats.d7 / stats.total) * 100).toFixed(1)) : 0,
+      },
+      newPlayers: stats.newPlayers,
+      returningPlayers: stats.returning,
+    };
+  }
+
+  const data: Record<string, unknown> = {
+    byClass,
+    totalClasses: classStats.size,
+  };
+
+  const formatted = formatRetentionByClass(data);
+
+  return { report: 'retention-by-class', data, formatted };
+}
+
+function formatRetentionByClass(data: Record<string, unknown>): string {
+  const lines: string[] = [
+    '# Retention by Character Class Report',
+    '',
+  ];
+
+  const byClass = data.byClass as Record<string, ClassRetentionStats>;
+  const sortedClasses = Object.entries(byClass).sort((a, b) => b[1].totalPlayers - a[1].totalPlayers);
+
+  for (const [className, stats] of sortedClasses) {
+    const displayName = className.replace('_Class', '');
+    lines.push(`## ${displayName}`);
+    lines.push(`Total Players: ${stats.totalPlayers}`);
+    lines.push('');
+    lines.push('Retention Rates:');
+    lines.push(`  D1: ${stats.d1.rate}% (${stats.d1.count} players)`);
+    lines.push(`  D3: ${stats.d3.rate}% (${stats.d3.count} players)`);
+    lines.push(`  D7: ${stats.d7.rate}% (${stats.d7.count} players)`);
+    lines.push('');
+    lines.push('Player Status:');
+    lines.push(`  New: ${stats.newPlayers} | Returning: ${stats.returningPlayers}`);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
 async function runProgressionReport(directory: string): Promise<ReportResult> {
   const files = await findJsonFiles(directory);
   const charsFile = files.find(f => f.name === 'chars.json');
@@ -478,6 +664,9 @@ export async function runReport(
     case 'retention':
       result = await runRetentionReport(directory);
       break;
+    case 'retention-by-class':
+      result = await runRetentionByClassReport(directory);
+      break;
     case 'progression':
       result = await runProgressionReport(directory);
       break;
@@ -502,4 +691,4 @@ export function formatReportResult(result: ReportResult, format: 'text' | 'json'
   return result.formatted;
 }
 
-export const AVAILABLE_REPORTS: ReportName[] = ['player-kpis', 'retention', 'progression', 'schema-summary'];
+export const AVAILABLE_REPORTS: ReportName[] = ['player-kpis', 'retention', 'retention-by-class', 'progression', 'schema-summary'];

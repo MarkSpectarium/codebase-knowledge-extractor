@@ -15,6 +15,20 @@
         "../data"
       ],
       "env": {}
+    },
+    "json-genius": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "cd",
+        "json_genius",
+        "&&",
+        "npx",
+        "json-genius",
+        "serve"
+      ],
+      "env": {}
     }
   }
 }

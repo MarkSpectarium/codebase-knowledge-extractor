@@ -157,7 +157,7 @@ export const tools: Tool[] = [
         directory: { type: 'string', description: 'Directory containing JSON files' },
         report: {
           type: 'string',
-          enum: ['player-kpis', 'retention', 'progression', 'schema-summary'],
+          enum: ['player-kpis', 'retention', 'retention-by-class', 'progression', 'schema-summary'],
           description: 'Report name',
         },
       },
